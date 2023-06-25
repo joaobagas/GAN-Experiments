@@ -1,17 +1,32 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from torch.utils.data import DataLoader
+import torch.optim as optim
+import torchvision.utils as vutils
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from generator import Generator
+from discriminator import Discriminator
 
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        nn.init.normal_(m.weight.data, 1.0, 0.02)
-        nn.init.constant_(m.bias.data, 0)
+def train(netD, netG, dataloader, device, lr = 0.0002, epochs = 5, beta1 = 0.5):
 
-def train():
+    # Setup Adam optimizers for both G and D
+    optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
+
+    # Initialize the ``BCELoss`` function
+    criterion = nn.BCELoss()
+
+    # Establish convention for real and fake labels during training
+    real_label, fake_label = 1., 0.
+
+    # Size of z latent vector (i.e. size of generator input)
+    nz = 100
+
+    # Create batch of latent vectors that we will use to visualize the progression of the generator
+    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+
     # Lists to keep track of progress
     img_list = []
     G_losses = []
@@ -20,7 +35,7 @@ def train():
 
     print("Starting Training Loop...")
     # For each epoch
-    for epoch in range(num_epochs):
+    for epoch in range(epochs):
         # For each batch in the dataloader
         for i, data in enumerate(dataloader, 0):
 
@@ -77,7 +92,7 @@ def train():
             # Output training stats
             if i % 50 == 0:
                 print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                      % (epoch, num_epochs, i, len(dataloader),
+                      % (epoch, epochs, i, len(dataloader),
                          errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
 
             # Save Losses for plotting later
@@ -85,69 +100,60 @@ def train():
             D_losses.append(errD.item())
 
             # Check how the generator is doing by saving G's output on fixed_noise
-            if (iters % 500 == 0) or ((epoch == num_epochs-1) and (i == len(dataloader)-1)):
+            if (iters % 500 == 0) or ((epoch == epochs-1) and (i == len(dataloader)-1)):
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
             iters += 1
 
-def plot_results():
-    fig = plt.figure(figsize=(8,8))
-    plt.axis("off")
-    ims = [[plt.imshow(np.transpose(i,(1,2,0)), animated=True)] for i in img_list]
-    ani = animation.ArtistAnimation(fig, ims, interval=1000, repeat_delay=1000, blit=True)
-
-    HTML(ani.to_jshtml())
-
-    # Grab a batch of real images from the dataloader
-    real_batch = next(iter(dataloader))
-
-    # Plot the real images
-    plt.figure(figsize=(15,15))
-    plt.subplot(1,2,1)
-    plt.axis("off")
-    plt.title("Real Images")
-    plt.imshow(np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=5, normalize=True).cpu(),(1,2,0)))
-
-    # Plot the fake images from the last epoch
-    plt.subplot(1,2,2)
-    plt.axis("off")
-    plt.title("Fake Images")
-    plt.imshow(np.transpose(img_list[-1],(1,2,0)))
-    plt.show()
-
-
-# def train(dis, gen, dataset, device = "cpu", lr = 3e-4, z_dim = 64, batch_size = 32, num_epochs = 50):
-#     
+# from IPython.display import HTML
+# def plot_results(device):
+#     fig = plt.figure(figsize=(8,8))
+#     plt.axis("off")
+#     ims = [[plt.imshow(np.transpose(i,(1,2,0)), animated=True)] for i in img_list]
+#     ani = animation.ArtistAnimation(fig, ims, interval=1000, repeat_delay=1000, blit=True)
 # 
-#     # Initialize the optimizer and the criterion
-#     opt_dis = optim.Adam(dis.parameters(), lr = lr)
-#     opt_gen = optim.Adam(gen.parameters(), lr = lr)
-#     criterion = nn.BCELoss()   
+#     HTML(ani.to_jshtml())
 # 
-#     dataloader = DataLoader(dataset, batch_size = batch_size, shuffle=True)
+#     # Grab a batch of real images from the dataloader
+#     real_batch = next(iter(dataloader))
 # 
-#     for epoch in range(num_epochs):
-#         for batch_idx, (real, _) in enumerate(dataloader):
-#             real = real.view(-1, 784).to(device)
-#             batch_size = real.shape[0]
+#     # Plot the real images
+#     plt.figure(figsize=(15,15))
+#     plt.subplot(1,2,1)
+#     plt.axis("off")
+#     plt.title("Real Images")
+#     plt.imshow(np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=5, normalize=True).cpu(),(1,2,0)))
 # 
-#             noise = torch.randn(batch_size, z_dim).to(device)
-#             fake = gen(noise)
-#             disc_real = dis(real.view(-1))
-#             lossD_real = criterion(disc_real, torch.ones_like)
-#             disc_fake = dis(fake).view(-1)
-#             lossD_fake = criterion(disc_fake, torch.zerosLike(disc_fake))
-#             lossD = (lossD_real - lossD_fake)/2
-#             dis.zero_grad()
-#             lossD.backward(retain_graph=True)
-#             opt_dis.step()
-# 
-#             output = dis(fake).view(-1)
-#             lossG = criterion(output, torch.ones_like(output))
-#             gen.zero_grad()
-#             lossG.backward()
-#             opt_gen.step()
-# 
-#     return dis, gen
+#     # Plot the fake images from the last epoch
+#     plt.subplot(1,2,2)
+#     plt.axis("off")
+#     plt.title("Fake Images")
+#     plt.imshow(np.transpose(img_list[-1],(1,2,0)))
+#     plt.show()
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
+
+def set_nets(device, ngpu):
+
+    # Create the Generator and discriminators
+    netG = Generator(ngpu).to(device)
+    netD = Discriminator(ngpu).to(device)
+
+    # Handle multi-GPU
+    if (device.type == 'cuda') and (ngpu > 1):
+        netG = nn.DataParallel(netG, list(range(ngpu)))
+        netD = nn.DataParallel(netD, list(range(ngpu)))
+
+    # Apply the ``weights_init`` function to randomly initialize all weights to ``mean=0``, ``stdev=0.02``.
+    netG.apply(weights_init)
+    netD.apply(weights_init)    
+
+    return netG, netD
