@@ -1,7 +1,9 @@
 from torch import nn
 
 class Generator(nn.Module):
-    def __init__(self, ngpu):
+
+    # Size of feature maps is ngf and nc is the number of channels in the image
+    def __init__(self, ngpu, ngf = 64, nc = 3, nz = 100):
         super(Generator, self).__init__()
         self.ngpu = ngpu
         self.main = nn.Sequential(

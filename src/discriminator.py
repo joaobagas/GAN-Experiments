@@ -1,10 +1,12 @@
 from torch import nn
 
 class Discriminator(nn.Module):
-    def __init__(self, ngpu):
+    
+    # Size of feature maps is ndf and nc is the number of channels in the image
+    def __init__(self, ngpu, ndf = 64, nc = 3):
         super(Discriminator, self).__init__()
+        
         self.ngpu = ngpu
-
         self.main = nn.Sequential(
             # input is ``(nc) x 64 x 64``
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
