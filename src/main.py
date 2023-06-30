@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import torch.nn.parallel
 import torch.utils.data
 import torchvision.datasets as dset
@@ -10,13 +9,11 @@ from functions import *
 ngpu = 0
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
-# Batch size during training
-batch_size = 128
 # Spatial size of training images. All images will be resized to this size using a transformer.
 image_size = 64
 
 # Root directory for dataset
-dataroot = "data/celeba"
+dataroot = "/Users/bernardo.dias/Desktop/Documentos/Projects/GANs/dataset"
 
 ctransforms = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size), 
                                       transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -24,7 +21,7 @@ ctransforms = transforms.Compose([transforms.Resize(image_size), transforms.Cent
 dataset = dset.ImageFolder(root=dataroot, transform=ctransforms)
 
 # Create the dataloader
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True) 
 
 # Set up the neural networks
 netD, netG = set_nets(device, ngpu)
